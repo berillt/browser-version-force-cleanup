@@ -55,43 +55,34 @@ EN: Designed to run with SYSTEM privileges in enterprise environments (Intune, S
 ##  Konfigürasyon / Configuration
 
 TR: Tek yapmanız gereken `$KeepVersionEdge` ve `$KeepVersionChrome` değişkenlerini güncellemek.  
-TR: Örnek:  
-```powershell
-$KeepVersionEdge = "143.0.3650.96"
-$KeepVersionChrome = "143.0.7499.170"
+TR: Örnek: 
 
+   $KeepVersionEdge = "143.0.3650.96"
+   $KeepVersionChrome = "143.0.7499.170"
 
 TR: Scriptler çalışırken tüm işlemler aşağıdaki log dosyalarına yazılır:
-
-Edge: C:\ProgramData\EdgeForceCleanup.log
-
-Chrome: C:\ProgramData\ChromeForceCleanup.log
-
 EN: All actions performed by the scripts are logged to:
 
-Edge: C:\ProgramData\EdgeForceCleanup.log
+   Edge: C:\ProgramData\EdgeForceCleanup.log
+   Chrome: C:\ProgramData\ChromeForceCleanup.log
 
-Chrome: C:\ProgramData\ChromeForceCleanup.log
+## Doğrulama / Verification
 
-Doğrulama / Verification
-EN: After running the scripts, verify the remaining versions using:
 TR: Script çalıştıktan sonra aşağıdaki komutlarla hangi sürümlerin kaldığını kontrol edebilirsiniz:
+EN: After running the scripts, verify the remaining versions using:
+
 # Edge
 "C:\Program Files (x86)\Microsoft\Edge\Application\$KeepVersionEdge\msedge.exe" --version
 
 # Chrome
 "C:\Program Files\Google\Chrome\Application\$KeepVersionChrome\chrome.exe" --version
 
-Uyarılar / Warnings
+## Uyarılar / Warnings
 
 TR: Scriptler Microsoft tarafından desteklenmez.
-
 EN: These scripts are NOT officially supported by Microsoft.
-
 TR: Edge ve Chrome Update politikaları ile birlikte kullanılmalıdır, aksi takdirde eski sürümler tekrar yüklenebilir.
-
 EN: Should be used alongside Edge and Chrome Update policies; otherwise, older versions may be reinstalled.
-
 TR: Kendi sorumluluğunuzda kullanın.
-
 EN: Use at your own risk.
+
