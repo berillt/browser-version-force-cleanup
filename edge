@@ -1,0 +1,100 @@
+<# 
+===========================================
+EDGE FORCE CLEANUP SCRIPT
+===========================================
+
+TR: Belirlenen Edge versiyonu hariç tüm Edge sürümlerini zorla temizler.
+EN: Forcefully removes all Microsoft Edge versions except the specified one.
+
+TR: Intune / SCCM SYSTEM context için tasarlanmıştır.
+EN: Designed to run under Intune / SCCM SYSTEM context.
+
+TR: Microsoft tarafından desteklenmez, kendi riskinizle kullanın.
+EN: Not supported by Microsoft, use at your own risk.
+===========================================
+#>
+
+# ===============================
+# LOG AYARLARI / LOG SETTINGS
+# ===============================
+$LogPath = "C:\ProgramData\EdgeForceCleanup.log"
+Start-Transcript -Path $LogPath -Append
+
+Write-Output "=== EDGE FORCE CLEANUP BASLADI / STARTED ==="
+
+# ===============================
+# KONFIGURASYON / CONFIGURATION
+# ===============================
+
+# TR: Kalacak Edge versiyonu
+# EN: Edge version to keep
+$KeepVersion = "143.0.3650.96"
+
+# TR: Edge ana kurulum dizini
+# EN: Edge base installation directory
+$EdgeBasePath = "C:\Program Files (x86)\Microsoft\Edge\Application"
+
+# ===============================
+# SERVİS VE PROCESS DURDURMA
+# STOP SERVICES AND PROCESSES
+# ===============================
+Write-Output "Edge servisleri durduruluyor / Stopping Edge services..."
+
+Stop-Service edgeupdate -Force -ErrorAction SilentlyContinue
+Stop-Service edgeupdatem -Force -ErrorAction SilentlyContinue
+
+taskkill /IM msedge.exe /F /T 2>$null
+taskkill /IM msedgeupdate.exe /F /T 2>$null
+
+# ===============================
+# ESKİ EDGE KLASÖRLERİNİ SİL
+# REMOVE OLD EDGE VERSION FOLDERS
+# ===============================
+if (Test-Path $EdgeBasePath) {
+    Get-ChildItem $EdgeBasePath -Directory | ForEach-Object {
+        if ($_.Name -ne $KeepVersion) {
+            Write-Output "Klasor siliniyor / Removing folder: $($_.FullName)"
+
+            takeown /F $_.FullName /R /D Y | Out-Null
+            icacls $_.FullName /grant Administrators:F /T | Out-Null
+
+            Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# ===============================
+# MSI REGISTRY TEMİZLİĞİ
+# CLEAN MSI REGISTRY ENTRIES
+# ===============================
+Write-Output "Edge MSI registry temizleniyor / Cleaning Edge MSI registry..."
+
+$UninstallPaths = @(
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+    "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+)
+
+foreach ($Path in $UninstallPaths) {
+    Get-ChildItem $Path -ErrorAction SilentlyContinue | ForEach-Object {
+        $App = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+
+        if ($App.DisplayName -eq "Microsoft Edge" -and $App.DisplayVersion -ne $KeepVersion) {
+            Write-Output "Registry kaydi siliniyor / Removing registry entry: $($App.DisplayVersion)"
+            Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# ===============================
+# EDGE UPDATE CACHE TEMİZLE
+# CLEAN EDGE UPDATE CACHE
+# ===============================
+Write-Output "Edge Update cache temizleniyor / Cleaning Edge Update cache..."
+
+Remove-Item "C:\Program Files (x86)\Microsoft\EdgeUpdate" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "C:\ProgramData\Microsoft\EdgeUpdate" -Recurse -Force -ErrorAction SilentlyContinue
+
+Write-Output "=== EDGE FORCE CLEANUP BITTI / COMPLETED ==="
+
+Stop-Transcript
+exit 0
