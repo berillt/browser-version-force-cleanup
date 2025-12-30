@@ -1,1 +1,90 @@
-# Browser Force Version Cleanup / Tarayıcı Zorla Versiyon Temizliği
+<#
+.SYNOPSIS
+TR: Belirlenen Chrome sürümü haricindeki tüm Chrome sürümlerini kaldırır ve cache ile registry temizliği yapar.
+EN: Removes all Google Chrome versions except the specified one, cleaning folders, MSI registry entries, and update caches.
+
+.DESCRIPTION
+TR: Bu script, sistemdeki eski Google Chrome sürümlerini siler. 
+TR: Belirtilen sürüm ($KeepVersion) bırakılır.
+TR: Chrome process ve Google Update servislerini durdurur, klasörleri ve MSI registry kayıtlarını temizler.
+EN: This script removes old Google Chrome versions from the system.
+EN: Keeps the specified version ($KeepVersion).
+EN: Stops Chrome processes and Google Update services, cleans folders and MSI registry entries.
+
+.NOTES
+TR: Sistem yetkisi gerektirir, Intune veya SCCM üzerinden dağıtılabilir.
+EN: Requires SYSTEM privileges; suitable for deployment via Intune or SCCM.
+#>
+
+# -----------------------------
+# 0️⃣ Log dosyası
+# -----------------------------
+$LogPath = "C:\ProgramData\ChromeForceCleanup.log"
+Start-Transcript -Path $LogPath -Append
+
+Write-Output "=== CHROME FORCE CLEANUP BASLADI / STARTED ==="
+
+# -----------------------------
+# 1️⃣ Korunacak sürüm ve base path
+# -----------------------------
+$KeepVersion = "143.0.7499.170" # TR: Bu sürümü bırakır / EN: Version to keep
+$ChromeBasePath = "C:\Program Files\Google\Chrome\Application" # TR/EN: Chrome kurulum klasörü
+
+# -----------------------------
+# 2️⃣ Chrome process ve update servislerini durdur
+# -----------------------------
+Write-Output "Chrome servisleri durduruluyor / Stopping Chrome services..."
+Stop-Service gupdate -Force -ErrorAction SilentlyContinue
+Stop-Service gupdatem -Force -ErrorAction SilentlyContinue
+
+taskkill /IM chrome.exe /F /T 2>$null
+taskkill /IM googleupdate.exe /F /T 2>$null
+
+# -----------------------------
+# 3️⃣ Eski Chrome klasörlerini sil
+# -----------------------------
+Write-Output "Eski Chrome klasörleri siliniyor / Removing old Chrome folders..."
+if (Test-Path $ChromeBasePath) {
+    Get-ChildItem $ChromeBasePath -Directory | ForEach-Object {
+        if ($_.Name -ne $KeepVersion -and $_.Name -ne "Installer") {
+            Write-Output "Klasör siliniyor / Deleting folder: $($_.FullName)"
+            takeown /F $_.FullName /R /D Y | Out-Null
+            icacls $_.FullName /grant Administrators:F /T | Out-Null
+            Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# -----------------------------
+# 4️⃣ Chrome MSI registry kayıtlarını temizle
+# -----------------------------
+Write-Output "Chrome MSI registry temizliği / Cleaning Chrome MSI registry..."
+
+$UninstallPaths = @(
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+    "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+)
+
+foreach ($Path in $UninstallPaths) {
+    Get-ChildItem $Path -ErrorAction SilentlyContinue | ForEach-Object {
+        $App = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+        if ($App.DisplayName -eq "Google Chrome" -and $App.DisplayVersion -ne $KeepVersion) {
+            Write-Output "Registry kaydı siliniyor / Deleting registry entry: $($App.DisplayVersion)"
+            Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# -----------------------------
+# 5️⃣ Google Update cache temizliği
+# -----------------------------
+Write-Output "Google Update cache temizleniyor / Cleaning Google Update cache..."
+Remove-Item "C:\Program Files (x86)\Google\Update" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "C:\ProgramData\Google" -Recurse -Force -ErrorAction SilentlyContinue
+
+# -----------------------------
+# 6️⃣ Bitiş
+# -----------------------------
+Write-Output "=== CHROME FORCE CLEANUP BITTI / FINISHED ==="
+Stop-Transcript
+exit 0
